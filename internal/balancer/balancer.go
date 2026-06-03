@@ -22,7 +22,14 @@ func (b *Balancer) Next() *Backend {
 		return nil
 	}
 
-	current := atomic.AddUint64(&b.current, 1)
+	for i := 0; i < n; i++ {
+		current := atomic.AddUint64(&b.current, 1)
+		backend := b.pool.Backends[(current-1)%uint64(n)]
 
-	return b.pool.Backends[(current-1)%uint64(n)]
+		if backend.Alive.Load() {
+			return backend
+		}
+	}
+
+	return nil
 }

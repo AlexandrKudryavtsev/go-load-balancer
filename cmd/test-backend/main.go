@@ -24,6 +24,10 @@ func main() {
 		fmt.Fprintf(w, "backend: %s", addr)
 	})
 
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	fmt.Printf("server started on %s\n", port)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		fmt.Println(err)

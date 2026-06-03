@@ -1,11 +1,13 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/AlexandrKudryavtsev/go-load-balancer/config"
 	"github.com/AlexandrKudryavtsev/go-load-balancer/internal/balancer"
@@ -21,7 +23,16 @@ func Run(cfg *config.Config) {
 		return
 	}
 
+	d, err := time.ParseDuration(cfg.Server.HealthCheckInterval)
+	if err != nil {
+		fmt.Printf("failed parse duration: %v\n", err)
+		return
+	}
 	b := balancer.New(pool)
+
+	healthCheckerContext, cancelHealthCheckerContext := context.WithCancel(context.Background())
+	defer cancelHealthCheckerContext()
+	go pool.StartHealthChecker(healthCheckerContext, d)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		backend := b.Next()
@@ -52,6 +63,7 @@ func Run(cfg *config.Config) {
 
 	case sig := <-quit:
 		fmt.Printf("received signal: %s\n", sig)
+		cancelHealthCheckerContext()
 
 		if err := httpServer.Shutdown(); err != nil {
 			fmt.Printf("shutdown error: %v\n", err)

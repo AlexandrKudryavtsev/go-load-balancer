@@ -3,10 +3,11 @@ package balancer
 import (
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 )
 
 type Backend struct {
 	URL   *url.URL
-	Alive bool
+	Alive atomic.Bool
 	Proxy *httputil.ReverseProxy
 }

@@ -1,16 +1,20 @@
 package balancer
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
+	"time"
 
 	"github.com/AlexandrKudryavtsev/go-load-balancer/config"
 )
 
 type Pool struct {
 	Backends []*Backend
+	client   *http.Client
 }
 
 func NewPool(cfg []config.BackendConfig) (*Pool, error) {
@@ -28,14 +32,50 @@ func NewPool(cfg []config.BackendConfig) (*Pool, error) {
 			http.Error(w, "bad gateway", http.StatusBadGateway)
 		}
 
+		alive := atomic.Bool{}
+		alive.Store(true)
+
 		backends = append(backends, &Backend{
 			URL:   backendUrl,
-			Alive: true,
+			Alive: alive,
 			Proxy: proxy,
 		})
 	}
 
 	return &Pool{
 		Backends: backends,
+		client: &http.Client{
+			Timeout: 3 * time.Second,
+		},
 	}, nil
+}
+
+func (p *Pool) StartHealthChecker(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	p.check()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			fmt.Println("health checker")
+			p.check()
+		}
+	}
+}
+
+func (p *Pool) check() {
+	for _, backend := range p.Backends {
+		resp, err := p.client.Get(backend.URL.String() + "/health")
+		if err != nil {
+			backend.Alive.Store(false)
+			continue
+		}
+
+		_ = resp.Body.Close()
+		backend.Alive.Store(resp.StatusCode == http.StatusOK)
+	}
 }
