@@ -8,14 +8,23 @@ import (
 	"syscall"
 
 	"github.com/AlexandrKudryavtsev/go-load-balancer/config"
+	"github.com/AlexandrKudryavtsev/go-load-balancer/internal/balancer"
 	"github.com/AlexandrKudryavtsev/go-load-balancer/pkg/httpserver"
 )
 
 func Run(cfg *config.Config) {
 	mux := http.NewServeMux()
 
+	pool := balancer.NewPool(cfg.Backends)
+	b := balancer.New(pool)
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("load balancer is running"))
+		backend := b.Next()
+		if backend == nil {
+			http.Error(w, "no available backends", http.StatusServiceUnavailable)
+		}
+
+		fmt.Fprintf(w, "selected backend: %s", backend.URL.String())
 	})
 
 	httpServer := httpserver.New(
