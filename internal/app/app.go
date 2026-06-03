@@ -15,16 +15,22 @@ import (
 func Run(cfg *config.Config) {
 	mux := http.NewServeMux()
 
-	pool := balancer.NewPool(cfg.Backends)
+	pool, err := balancer.NewPool(cfg.Backends)
+	if err != nil {
+		fmt.Printf("failed create new pool: %v\n", err)
+		return
+	}
+
 	b := balancer.New(pool)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		backend := b.Next()
 		if backend == nil {
 			http.Error(w, "no available backends", http.StatusServiceUnavailable)
+			return
 		}
 
-		fmt.Fprintf(w, "selected backend: %s", backend.URL.String())
+		backend.Proxy.ServeHTTP(w, r)
 	})
 
 	httpServer := httpserver.New(
