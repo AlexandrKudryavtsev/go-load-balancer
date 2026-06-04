@@ -3,23 +3,33 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server   ServerConfig    `yaml:"server"`
-	Backends []BackendConfig `yaml:"backends"`
+	Server      ServerConfig      `yaml:"server"`
+	Backends    []BackendConfig   `yaml:"backends"`
+	HealthCheck HealthCheckConfig `yaml:"health_check"`
 }
 
 type ServerConfig struct {
-	Port                int    `yaml:"port"`
-	HealthCheckInterval string `yaml:"health_check_interval"`
+	Port            int      `yaml:"port"`
+	ReadTimeout     Duration `yaml:"read_timeout"`
+	WriteTimeout    Duration `yaml:"write_timeout"`
+	ShutdownTimeout Duration `yaml:"shutdown_timeout"`
 }
 
 type BackendConfig struct {
-	URL string `yaml:"url"`
+	URL        string `yaml:"url"`
+	HealthPath string `yaml:"health_path"`
+}
+
+type HealthCheckConfig struct {
+	Interval Duration `yaml:"interval"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -44,6 +54,37 @@ func (c *Config) Validate() error {
 	}
 	if len(c.Backends) == 0 {
 		return errors.New("empty backends")
+	}
+
+	for i, backend := range c.Backends {
+		if backend.URL == "" {
+			return fmt.Errorf("backend %d: invalid url", i)
+		}
+
+		u, err := url.Parse(backend.URL)
+		if err != nil {
+			return fmt.Errorf("backend %d: invalid url %q: %w", i, backend.URL, err)
+		}
+		if u.Host == "" || u.Scheme == "" {
+			return fmt.Errorf("backend %d: invalid url %q", i, backend.URL)
+		}
+
+		if backend.HealthPath == "" || !strings.HasPrefix(backend.HealthPath, "/") {
+			return fmt.Errorf("backend %d: invalid health path", i)
+		}
+	}
+
+	if c.HealthCheck.Interval.Duration <= 0 {
+		return errors.New("invalid interval health check")
+	}
+	if c.Server.ReadTimeout.Duration <= 0 {
+		return errors.New("invalid read timeout")
+	}
+	if c.Server.WriteTimeout.Duration <= 0 {
+		return errors.New("invalid write timeout")
+	}
+	if c.Server.ShutdownTimeout.Duration <= 0 {
+		return errors.New("invalid shutdown timeout")
 	}
 
 	return nil

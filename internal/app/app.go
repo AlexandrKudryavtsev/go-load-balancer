@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/AlexandrKudryavtsev/go-load-balancer/config"
 	"github.com/AlexandrKudryavtsev/go-load-balancer/internal/balancer"
@@ -23,16 +22,11 @@ func Run(cfg *config.Config) {
 		return
 	}
 
-	d, err := time.ParseDuration(cfg.Server.HealthCheckInterval)
-	if err != nil {
-		fmt.Printf("failed parse duration: %v\n", err)
-		return
-	}
 	b := balancer.New(pool)
 
 	healthCheckerContext, cancelHealthCheckerContext := context.WithCancel(context.Background())
 	defer cancelHealthCheckerContext()
-	go pool.StartHealthChecker(healthCheckerContext, d)
+	go pool.StartHealthChecker(healthCheckerContext, cfg.HealthCheck.Interval.Duration)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		backend := b.Next()
@@ -47,6 +41,9 @@ func Run(cfg *config.Config) {
 	httpServer := httpserver.New(
 		mux,
 		httpserver.Port(cfg.Server.Port),
+		httpserver.ReadTimeout(cfg.Server.ReadTimeout.Duration),
+		httpserver.WriteTimeout(cfg.Server.WriteTimeout.Duration),
+		httpserver.ShutdownTimeout(cfg.Server.ShutdownTimeout.Duration),
 	)
 
 	httpServer.Start()

@@ -32,14 +32,14 @@ func NewPool(cfg []config.BackendConfig) (*Pool, error) {
 			http.Error(w, "bad gateway", http.StatusBadGateway)
 		}
 
-		alive := atomic.Bool{}
-		alive.Store(true)
+		backend := &Backend{
+			URL:        backendUrl,
+			HealthPath: backend.HealthPath,
+			Alive:      atomic.Bool{},
+			Proxy:      proxy,
+		}
 
-		backends = append(backends, &Backend{
-			URL:   backendUrl,
-			Alive: alive,
-			Proxy: proxy,
-		})
+		backends = append(backends, backend)
 	}
 
 	return &Pool{
@@ -69,7 +69,7 @@ func (p *Pool) StartHealthChecker(ctx context.Context, interval time.Duration) {
 
 func (p *Pool) check() {
 	for _, backend := range p.Backends {
-		resp, err := p.client.Get(backend.URL.String() + "/health")
+		resp, err := p.client.Get(backend.URL.String() + backend.HealthPath)
 		if err != nil {
 			backend.Alive.Store(false)
 			continue

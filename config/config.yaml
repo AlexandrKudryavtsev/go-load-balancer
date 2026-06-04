@@ -1,8 +1,16 @@
 server:
   port: 8080
-  health_check_interval: '10s'
+  read_timeout: '3s'
+  write_timeout: '3s'
+  shutdown_timeout: '3s'
 
 backends:
   - url: "http://localhost:9001"
+    health_path: "/health"
   - url: "http://localhost:9002"
+    health_path: "/health"
   - url: "http://localhost:9003"
+    health_path: "/health"
+
+health_check:
+  interval: '10s'
