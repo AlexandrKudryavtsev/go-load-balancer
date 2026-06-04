@@ -16,7 +16,7 @@ func main() {
 	}
 
 	if err = cfg.Validate(); err != nil {
-		fmt.Println("invalid config")
+		fmt.Printf("invalid config: %v", err)
 		return
 	}
 

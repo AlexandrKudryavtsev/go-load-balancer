@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/AlexandrKudryavtsev/go-load-balancer/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,6 +15,7 @@ type Config struct {
 	Server      ServerConfig      `yaml:"server"`
 	Backends    []BackendConfig   `yaml:"backends"`
 	HealthCheck HealthCheckConfig `yaml:"health_check"`
+	Logger      logger.Config     `yaml:"logger"`
 }
 
 type ServerConfig struct {
@@ -85,6 +87,16 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.ShutdownTimeout.Duration <= 0 {
 		return errors.New("invalid shutdown timeout")
+	}
+
+	if c.Logger.Format != "json" && c.Logger.Format != "text" {
+		return errors.New("invalid logger format")
+	}
+
+	switch c.Logger.Level {
+	case "debug", "info", "warn", "warning", "error":
+	default:
+		return errors.New("invalid logger level")
 	}
 
 	return nil

@@ -14,3 +14,8 @@ backends:
 
 health_check:
   interval: '10s'
+
+logger:
+  level: debug
+  format: json
+  add_source: false

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,14 +10,17 @@ import (
 	"github.com/AlexandrKudryavtsev/go-load-balancer/config"
 	"github.com/AlexandrKudryavtsev/go-load-balancer/internal/balancer"
 	"github.com/AlexandrKudryavtsev/go-load-balancer/pkg/httpserver"
+	"github.com/AlexandrKudryavtsev/go-load-balancer/pkg/logger"
 )
 
 func Run(cfg *config.Config) {
 	mux := http.NewServeMux()
 
-	pool, err := balancer.NewPool(cfg.Backends)
+	log := logger.New(cfg.Logger)
+
+	pool, err := balancer.NewPool(cfg.Backends, log)
 	if err != nil {
-		fmt.Printf("failed create new pool: %v\n", err)
+		log.Error("failed create new pool", "error", err)
 		return
 	}
 
@@ -48,6 +50,12 @@ func Run(cfg *config.Config) {
 
 	httpServer.Start()
 
+	log.Info(
+		"load balancer started",
+		"port", cfg.Server.Port,
+		"backends", len(cfg.Backends),
+	)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(quit)
@@ -55,18 +63,18 @@ func Run(cfg *config.Config) {
 	select {
 	case err, ok := <-httpServer.Notify():
 		if ok && err != nil {
-			fmt.Printf("http server error: %v\n", err)
+			log.Error("http server", "error", err)
 		}
 
 	case sig := <-quit:
-		fmt.Printf("received signal: %s\n", sig)
+		log.Info("received signal", "signal", sig)
 		cancelHealthCheckerContext()
 
 		if err := httpServer.Shutdown(); err != nil {
-			fmt.Printf("shutdown error: %v\n", err)
+			log.Error("shutdown error", "error", err)
 			return
 		}
 
-		fmt.Println("http server stopped")
+		log.Info("http server stopped")
 	}
 }
