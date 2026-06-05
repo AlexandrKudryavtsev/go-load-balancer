@@ -30,9 +30,11 @@ func NewPool(cfg []config.BackendConfig, log *slog.Logger) (*Pool, error) {
 		proxy := httputil.NewSingleHostReverseProxy(backendURL)
 
 		backend := &Backend{
-			URL:        backendURL,
-			HealthPath: backendCfg.HealthPath,
-			Proxy:      proxy,
+			URL:           backendURL,
+			HealthPath:    backendCfg.HealthPath,
+			Proxy:         proxy,
+			Weight:        backendCfg.Weight,
+			CurrentWeight: 0,
 		}
 
 		backend.Alive.Store(true)

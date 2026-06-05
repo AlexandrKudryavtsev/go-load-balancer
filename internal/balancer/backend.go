@@ -7,8 +7,10 @@ import (
 )
 
 type Backend struct {
-	URL        *url.URL
-	Alive      atomic.Bool
-	Proxy      *httputil.ReverseProxy
-	HealthPath string
+	URL           *url.URL
+	Alive         atomic.Bool
+	Proxy         *httputil.ReverseProxy
+	HealthPath    string
+	Weight        int
+	CurrentWeight int
 }

@@ -28,6 +28,7 @@ type ServerConfig struct {
 type BackendConfig struct {
 	URL        string `yaml:"url"`
 	HealthPath string `yaml:"health_path"`
+	Weight     int    `yaml:"weight"`
 }
 
 type HealthCheckConfig struct {
@@ -73,6 +74,9 @@ func (c *Config) Validate() error {
 
 		if backend.HealthPath == "" || !strings.HasPrefix(backend.HealthPath, "/") {
 			return fmt.Errorf("backend %d: invalid health path", i)
+		}
+		if backend.Weight < 1 {
+			return fmt.Errorf("backend %d: invalid weight", i)
 		}
 	}
 

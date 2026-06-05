@@ -7,10 +7,13 @@ server:
 backends:
   - url: "http://localhost:9001"
     health_path: "/health"
+    weight: 5
   - url: "http://localhost:9002"
     health_path: "/health"
+    weight: 3
   - url: "http://localhost:9003"
     health_path: "/health"
+    weight: 1
 
 health_check:
   interval: '10s'

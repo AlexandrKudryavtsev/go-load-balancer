@@ -1,35 +1,42 @@
 package balancer
 
-import (
-	"sync/atomic"
-)
+import "sync"
 
 type Balancer struct {
-	pool    *Pool
-	current uint64
+	pool *Pool
+	mu   sync.Mutex
 }
 
 func New(pool *Pool) *Balancer {
 	return &Balancer{
-		pool:    pool,
-		current: 0,
+		pool: pool,
+		mu:   sync.Mutex{},
 	}
 }
 
 func (b *Balancer) Next() *Backend {
-	n := len(b.pool.Backends)
-	if n == 0 {
-		return nil
-	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var best *Backend
+	totalWeight := 0
 
-	for i := 0; i < n; i++ {
-		current := atomic.AddUint64(&b.current, 1)
-		backend := b.pool.Backends[(current-1)%uint64(n)]
+	for _, backend := range b.pool.Backends {
+		if !backend.Alive.Load() {
+			continue
+		}
 
-		if backend.Alive.Load() {
-			return backend
+		backend.CurrentWeight += backend.Weight
+		totalWeight += backend.Weight
+		if best == nil || backend.CurrentWeight > best.CurrentWeight {
+			best = backend
 		}
 	}
 
-	return nil
+	if best == nil {
+		return nil
+	}
+
+	best.CurrentWeight -= totalWeight
+
+	return best
 }
